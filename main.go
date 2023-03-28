@@ -16,6 +16,10 @@ func main() {
 		initCommand,
 		runCommand,
 		commitCommand,
+		listCommand,
+		execCommand,
+		stopCommand,
+		removeCommand,
 	}
 	app.Before = func(context *cli.Context) error {
 		// 用json作日志代替默认的formatter
