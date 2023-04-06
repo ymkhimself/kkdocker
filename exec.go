@@ -32,6 +32,11 @@ func ExecContainer(containerName string, comArray []string) {
 
 	os.Setenv(ENV_EXEC_PID, pid)
 	os.Setenv(ENV_EXEC_CMD, cmdStr)
+
+	// 获取容器环境变量
+	envSlice := getEnvsByPid(pid)
+	cmd.Env = append(os.Environ(), envSlice...)
+
 	if err := cmd.Run(); err != nil {
 		log.Errorf("Exec container %s error %v", containerName, err)
 	}
@@ -50,4 +55,15 @@ func getContainerPidByName(containerName string) (string, error) {
 		return "", err
 	}
 	return containerInfo.Pid, nil
+}
+
+func getEnvsByPid(pid string) []string {
+	path := fmt.Sprintf("/proc/%s/environ", pid)
+	contentBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Errorf("Read file %s error %v.", path, err)
+		return nil
+	}
+	envs := strings.Split(string(contentBytes), "\u0000") // 环境变量之间通过\u0000分割
+	return envs
 }

@@ -15,12 +15,12 @@ import (
 	log "github.com/siruspen/logrus"
 )
 
-func Run(tty bool, comArray []string, res *subsystem.ResourceConfig, volume string, containerName string) {
+func Run(tty bool, comArray []string, res *subsystem.ResourceConfig, volume, containerName, imageName string, envSlice []string) {
 	containerId := randStringBytes(10)
 	if containerName == "" {
 		containerName = containerId
 	}
-	parent, writePipe := container.NewParentProcess(tty, containerName, volume) // 创建新的拥有隔离环境的进程
+	parent, writePipe := container.NewParentProcess(tty, containerName, volume, imageName,envSlice) // 创建新的拥有隔离环境的进程
 	if parent == nil {
 		log.Errorln("New parent process error")
 		return
@@ -30,7 +30,7 @@ func Run(tty bool, comArray []string, res *subsystem.ResourceConfig, volume stri
 	}
 
 	// 记录容器信息
-	containerName, err := recordContainerInfo(parent.Process.Pid, comArray, containerId, containerName)
+	containerName, err := recordContainerInfo(parent.Process.Pid, comArray, containerId, containerName, volume)
 	if err != nil {
 		log.Errorf("Record container info error %v", err)
 		return
@@ -46,15 +46,12 @@ func Run(tty bool, comArray []string, res *subsystem.ResourceConfig, volume stri
 	if tty {
 		parent.Wait()
 		deleteContainerInfo(containerName)
+		container.DeleteWorkSpace(volume, containerName)
 	}
-	//mntURL := "/root/mnt"
-	//rootURL := "/root"
-	//container.DeleteWorkSpace(rootURL, mntURL, volume)
-	os.Exit(-1)
 }
 
 // 记录容器信息，将信息保存到/var/run/容器名/config.json中
-func recordContainerInfo(containerPID int, commandArray []string, containerId, containerName string) (string, error) {
+func recordContainerInfo(containerPID int, commandArray []string, containerId, containerName string, volume string) (string, error) {
 	// 十位随机数表示容器id
 	createTime := time.Now().Format("2006-01-02 15:04:13")
 	command := strings.Join(commandArray, "")
@@ -66,6 +63,7 @@ func recordContainerInfo(containerPID int, commandArray []string, containerId, c
 		Command:     command,
 		CreatedTime: createTime,
 		Status:      container.RUNNING,
+		Volume:      volume,
 	}
 	jsonBytes, err := json.Marshal(containerInfo)
 	if err != nil {
